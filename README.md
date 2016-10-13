@@ -26,33 +26,14 @@ On Linux/Unix run
 
   `aclocal && automake --add-missing && ./configure && make`
 
-On Mac OS (untested):
+On Mac OS (minimally tested):
 
-Automake may not be properly installed even with XCode. You may need
-to get that, and
-
-before you can successfully `configure`. An error about an outdated
-'missing' file is indicative.
-
-The location of the required gsl, gslblas, pthread, and openMP
-libraries may need to be specified:
-
-E.g. with macports
-
-  `./configure LDFLAGS="-L/opt/local/lib" CPPFLAGS="-I/opt/local/include" && make`
-
-Or with homebrew,
-
-  `./configure CXX=g++-6 LDFLAGS="-L/usr/local/Cellar/gsl/2.2.1/lib" CFLAGS="-stdlib=libstdc++ -I/usr/local/Cellar/gsl/2.2.1/include" && make`
-
-If you `make install`, the binary 'dynnormprec' will be installed in /usr/local/bin unless a
-different prefix is provided to configure. (See `./INSTALL`.)
-
+   Try `./macos.sh` and adjust that as needed for your system.
 
 Running
 -------
 
-./dynnormprec -dir data\_dir -n num\_users -m num\_items -k num\_factors [-rfreq] [-vprior] [-binary-data]
+./src/dynnormprec -dir data\_dir -n num\_users -m num\_items -k num\_factors [-rfreq] [-vprior] [-binary-data]
 
 *Required arguments*
 
@@ -79,6 +60,14 @@ Example
    See the lastFM files in `dat/`. To use this dataset you will first need
    to uncompress the data files (e.g., for train.tsv.gz `gunzip
    train.tsv.gz` and similarly with validation.tsv.gz and test.tsv.gz)
+
+   The fields are `user_id`, `item_id`, `rating`, `time`.
+
+   The validation and test files must not contain `user_id`s not present in training.
+
+   The -tpl option's units are actually whatever units the numeric
+   time field is in. E.g. seconds or millis depending on the timestamp
+   format.
 
 2. Running the command. We recommend running dynnormprec using the following options:
 
