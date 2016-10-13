@@ -1,0 +1,15 @@
+Makefile
+Makefile.in
+aclocal.m4
+autom4te.cache
+config.log
+config.status
+configure
+depcomp
+missing
+src/*.o
+src/.deps
+src/Makefile
+src/Makefile.in
+src/dynnormprec
+src/dynnormprec.o src/log.o src/main.o src/ratings.o

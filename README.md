@@ -24,15 +24,29 @@ Required libraries: gsl, gslblas, pthread, openMP
 
 On Linux/Unix run
 
- `./configure;make`
+  `aclocal && automake --add-missing && ./configure && make`
 
-On Mac OS (untested), the location of the required gsl, gslblas, pthread,
-and openMP libraries may need to be specified:
+On Mac OS (untested):
 
- `./configure LDFLAGS="-L/opt/local/lib" CPPFLAGS="-I/opt/local/include"; make` 
+Automake may not be properly installed even with XCode. You may need
+to get that, and
 
-The binary 'dynnormprec' will be installed in /usr/local/bin unless a
-different prefix is provided to configure. (See INSTALL.)
+before you can successfully `configure`. An error about an outdated
+'missing' file is indicative.
+
+The location of the required gsl, gslblas, pthread, and openMP
+libraries may need to be specified:
+
+E.g. with macports
+
+  `./configure LDFLAGS="-L/opt/local/lib" CPPFLAGS="-I/opt/local/include" && make`
+
+Or with homebrew,
+
+  `./configure CXX=g++-6 LDFLAGS="-L/usr/local/Cellar/gsl/2.2.1/lib" CFLAGS="-stdlib=libstdc++ -I/usr/local/Cellar/gsl/2.2.1/include" && make`
+
+If you `make install`, the binary 'dynnormprec' will be installed in /usr/local/bin unless a
+different prefix is provided to configure. (See `./INSTALL`.)
 
 
 Running
@@ -48,7 +62,7 @@ Running
 - -n <int>	  number of users
 - -m <int>	  number of items
 - -k <int>	  number of factors
-   
+
 *Optional arguments*
 
 - -rfreq <int>	  assess convergence and compute other stats every <int> number of iterations
