@@ -37,9 +37,9 @@ typedef std::map<string, uint32_t> StrMap;
 typedef std::map<uint32_t, string> StrMapInv;
 
 typedef D1Array<std::vector<uint32_t> *> SparseMatrix;
-typedef D1Array<std::unordered_map<uint32_t, std::vector<uint32_t> *> *> SparseMatrixT; 
+typedef D1Array<std::unordered_map<uint32_t, std::vector<uint32_t> *> *> SparseMatrixT;
 typedef D1Array<RatingMap *> SparseMatrixR;
-typedef D1Array<std::map<uint32_t, RatingMap *> *> SparseMatrixTR; 
+typedef D1Array<std::map<uint32_t, RatingMap *> *> SparseMatrixTR;
 typedef std::vector<Rating> RatingList;
 typedef std::map<uint32_t, bool> UserMap;
 typedef std::map<uint32_t, bool> MovieMap;
@@ -57,14 +57,14 @@ typedef std::map<uint32_t, string> StrMapInv;
 class Env {
 public:
   typedef enum { CREATE_TRAIN_TEST_SETS, TRAINING } Mode;
-  Env(uint32_t N, uint32_t M, uint32_t K, string fname, 
+  Env(uint32_t N, uint32_t M, uint32_t K, string fname,
       uint32_t rfreq, double rseed,
-      uint32_t max_iterations, bool load, string loc, 
-      bool batch, bool binary_data, 
+      uint32_t max_iterations, bool load, string loc,
+      bool batch, bool binary_data,
       uint32_t rating_threshold, bool normal_priors,
       bool fixed_item_param, bool pf_init, bool pf_init_static,
       double vprior, bool dynamic_item_representations,
-      bool dynamic_user_and_item_representations, uint32_t num_threads, 
+      bool dynamic_user_and_item_representations, uint32_t num_threads,
       uint32_t time_period_length);
 
   ~Env() { fclose(_plogf); }
@@ -106,15 +106,15 @@ public:
   bool binary_data;
   bool explore;
   uint32_t rating_threshold;
-  bool normal_priors; 
+  bool normal_priors;
   bool dynamic_item_representations;
   bool dynamic_user_and_item_representations;
   bool fixed_item_param;
   bool pf_init;
   bool pf_init_static;
-  double vprior; 
+  double vprior;
   uint32_t num_threads;
-  bool normalized_representations; 
+  bool normalized_representations;
 
   uint32_t time_periods;
   uint32_t time_period_length;
@@ -203,13 +203,13 @@ Env::file_str(string fname)
   return s;
 }
 
-inline void 
+inline void
 Env::read_for_stats(char *buf, uint32_t *min_rating_time, uint32_t *max_rating_time)
 {
   uint32_t mid = 0, uid = 0, rating = 0, rating_time = 0;
   *min_rating_time = UINT32_MAX;
 
-  FILE *f = fopen(buf, "r"); 
+  FILE *f = fopen(buf, "r");
 
   while (!feof(f)) {
     if (fscanf(f, "%u\t%u\t%u\t%u\n", &uid, &mid, &rating, &rating_time) < 0) {
@@ -222,12 +222,12 @@ Env::read_for_stats(char *buf, uint32_t *min_rating_time, uint32_t *max_rating_t
     if (rating_time > *max_rating_time)
       *max_rating_time = rating_time;
   }
-  fclose(f); 
+  fclose(f);
 }
 
 
 inline
-Env::Env(uint32_t N, uint32_t M, uint32_t K, string fname, 
+Env::Env(uint32_t N, uint32_t M, uint32_t K, string fname,
 	 uint32_t rfreq, double rseed,
 	 uint32_t maxitr, bool load, string loc,
 	 bool batchv, bool binary_datav,
@@ -267,21 +267,21 @@ Env::Env(uint32_t N, uint32_t M, uint32_t K, string fname,
     num_threads(num_threadsv),
     time_period_length(time_period_lengthv)
 {
-  uint32_t max_rating_time=0; 
+  uint32_t max_rating_time=0;
   char buf[4096];
 
-  uint32_t valtest_epoch; 
+  uint32_t valtest_epoch;
 
   sprintf(buf, "%s/train.tsv", fname.c_str());
-  read_for_stats(buf, &time_my_epoch, &max_rating_time); 
+  read_for_stats(buf, &time_my_epoch, &max_rating_time);
 
   sprintf(buf, "%s/validation.tsv", fname.c_str());
-  read_for_stats(buf, &valtest_epoch, &max_rating_time); 
+  read_for_stats(buf, &valtest_epoch, &max_rating_time);
   if (valtest_epoch < time_my_epoch)
     time_my_epoch = valtest_epoch;
 
   sprintf(buf, "%s/test.tsv", fname.c_str());
-  read_for_stats(buf, &valtest_epoch, &max_rating_time); 
+  read_for_stats(buf, &valtest_epoch, &max_rating_time);
   if (valtest_epoch < time_my_epoch)
     time_my_epoch = valtest_epoch;
 
@@ -293,6 +293,7 @@ Env::Env(uint32_t N, uint32_t M, uint32_t K, string fname,
   max_train_time_period = 0;
 
   ostringstream sa;
+  sa << fname << "-";
   sa << "n" << n << "-";
   sa << "m" << m << "-";
   sa << "k" << k;
@@ -321,7 +322,7 @@ Env::Env(uint32_t N, uint32_t M, uint32_t K, string fname,
 
   if (binary_data)
     sa << "-bin";
-  
+
   if (normal_priors)
     sa << "-normpriors";
 
@@ -332,7 +333,7 @@ Env::Env(uint32_t N, uint32_t M, uint32_t K, string fname,
     sa << "-dui";
 
   if (num_threads > 1)
-    sa << "-nthreads" << num_threads; 
+    sa << "-nthreads" << num_threads;
 
   if (fixed_item_param)
     sa << "-fip";
@@ -351,20 +352,20 @@ Env::Env(uint32_t N, uint32_t M, uint32_t K, string fname,
   if (seed)
     sa << "-seed" << seed;
 
-  sa << "-tpl" << time_period_length; 
+  sa << "-tpl" << time_period_length;
 
   sa << "-correction";
 
   //if (rating_threshold)
   //sa << "-rthresh" << rating_threshold;
-  
+
   prefix = sa.str();
   level = Logger::TEST;
 
   fprintf(stdout, "+ Creating directory %s\n", prefix.c_str());
   fflush(stdout);
 
-  assert (Logger::initialize(prefix, "infer.log", 
+  assert (Logger::initialize(prefix, "infer.log",
 			     true, level) >= 0);
   _plogf = fopen(file_str("/param.txt").c_str(), "w");
   if (!_plogf)  {
@@ -378,7 +379,7 @@ Env::Env(uint32_t N, uint32_t M, uint32_t K, string fname,
   plog("seed", seed);
   plog("reportfreq", reportfreq);
   plog("normal_priors", normal_priors);
-  plog("datfname", datfname); 
+  plog("datfname", datfname);
   plog("fixed_item_param", fixed_item_param);
   plog("pf_init", pf_init);
   plog("pf_init_static", pf_init_static);
@@ -387,9 +388,9 @@ Env::Env(uint32_t N, uint32_t M, uint32_t K, string fname,
   plog("dynamic_item_representations", dynamic_item_representations);
   plog("dynamic_user_and_item_representations", dynamic_user_and_item_representations);
   plog("num_threads", num_threads);
-  plog("time_period_length", time_period_length); 
+  plog("time_period_length", time_period_length);
   plog("time_my_epoch", time_my_epoch);
-  plog("time_periods", time_periods); 
+  plog("time_periods", time_periods);
 
   //string ndatfname = file_str("/network.dat");
   //unlink(ndatfname.c_str());
