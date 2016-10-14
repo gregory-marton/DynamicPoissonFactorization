@@ -1,5 +1,5 @@
 #include "dynnormprec.hh"
-#include "utils.hh" 
+#include "utils.hh"
 #include <float.h>
 
 
@@ -51,16 +51,16 @@ DynNormPRec::DynNormPRec(Env &env, Ratings &ratings)
   if (!_pf)  {
     printf("cannot open logl file:%s\n",  strerror(errno));
     exit(-1);
-  }  
+  }
   _df = fopen(Env::file_str("/ndcg.txt").c_str(), "w");
   if (!_df)  {
     printf("cannot open logl file:%s\n",  strerror(errno));
     exit(-1);
-  }  
+  }
 
   load_validation_and_test_sets();
 
-  // allocate user and item weights for each timestep 
+  // allocate user and item weights for each timestep
   float vprior = _env.vprior;
   float mprior = 1e-2;
   for(uint32_t t=0; t <= _env.max_train_time_period; ++t)
@@ -70,9 +70,9 @@ DynNormPRec::DynNormPRec(Env &env, Ratings &ratings)
 
     a = new NormMatrix("beta_" + std::to_string((long long int)t), mprior, vprior, _m, _k, &_r);
     _betas.push_back(a);
-  } 
+  }
 
-  Env::plog("theta mean:", _thetas[0]->mprior()); // assumes the same priors 
+  Env::plog("theta mean:", _thetas[0]->mprior()); // assumes the same priors
   Env::plog("theta var:", _thetas[0]->vprior());  // across all thetas
   Env::plog("beta mean:", _betas[0]->mprior());
   Env::plog("beta var:", _betas[0]->vprior());
@@ -88,9 +88,9 @@ DynNormPRec::~DynNormPRec()
   fclose(_tf);
 }
 
-double old_elbo=-DBL_MAX; 
+double old_elbo=-DBL_MAX;
 
-void 
+void
 DynNormPRec::elbo()
 {
 
@@ -98,7 +98,7 @@ DynNormPRec::elbo()
   x = _k;
 
   double s = .0;
-  bool begin, end; 
+  bool begin, end;
 
   const double **etheta = _theta.expected_v().const_data();
   const double **ebeta = _beta.expected_v().const_data();
@@ -118,7 +118,7 @@ DynNormPRec::elbo()
 
     eexpbetas = _betas[t]->expected_expv().const_data();
     eexpthetas = _thetas[t]->expected_expv().const_data();
-    
+
     #pragma omp parallel for num_threads(_env.num_threads)
     for (uint32_t n = 0; n < _n; ++n) {
 
@@ -139,11 +139,11 @@ DynNormPRec::elbo()
           siter += y * phi[k] * (ethetas[n][k] + ebetas[m][k] + etheta[n][k] + ebeta[m][k] - log(phi[k]));
         }
 
-        // train ll 
+        // train ll
         train_ll_iter += rating_likelihood(n,m,t,y);
         train_ll_k_iter++;
 
-        // add fake 0  
+        // add fake 0
         //train_ll_iter += rating_likelihood(n, gsl_rng_uniform_int(_r, _m), t, 0);
         //train_ll_k_iter++;
 
@@ -179,23 +179,23 @@ DynNormPRec::elbo()
         }
       }
 
-    begin = (t==0 ? true: false); 
-    end = (t==_env.max_train_time_period ? true: false); 
+    begin = (t==0 ? true: false);
+    end = (t==_env.max_train_time_period ? true: false);
     if (begin) {
       s += (*_thetas[t]).elbo(begin, end, NULL, _thetas[t+1]->mean_curr().const_data());
     } else if (end) {
       s += (*_thetas[t]).elbo(begin, end, _thetas[t-1]->mean_curr().const_data());
-    } else // middle 
+    } else // middle
       s += (*_thetas[t]).elbo(begin, end, _thetas[t-1]->mean_curr().const_data(), _thetas[t+1]->mean_curr().const_data());
 
     if (begin) {
       s += (*_betas[t]).elbo(begin, end, NULL, _betas[t+1]->mean_curr().const_data());
     } else if (end) {
       s += (*_betas[t]).elbo(begin, end, _betas[t-1]->mean_curr().const_data());
-    } else // middle 
+    } else // middle
       s += (*_betas[t]).elbo(begin, end, _betas[t-1]->mean_curr().const_data(), _betas[t+1]->mean_curr().const_data());
 
-  } // time 
+  } // time
 
   //printf("velbo %f\n", v);
   s -= v;
@@ -207,7 +207,7 @@ DynNormPRec::elbo()
   s += _theta.elbo(true, true, onesn.const_data());
   s += _beta.elbo(true, true, onesm.const_data());
 
-  printf("\n\t\t\tELBO: %e (train ll: %f)", s, train_ll/train_ll_k); 
+  printf("\n\t\t\tELBO: %e (train ll: %f)", s, train_ll/train_ll_k);
   if((s - old_elbo) < -1e-5)
     printf("\n\t\t\t\t\t ELBO goes down (%e)\n", s-old_elbo);
   old_elbo=s;
@@ -235,7 +235,7 @@ DynNormPRec::load_validation_and_test_sets()
   assert(testf);
   _ratings.read_generic(testf, &_test_map);
   fclose(testf);
-  
+
   printf("+ loaded validation and test sets from %s\n", _env.datfname.c_str());
   fflush(stdout);
   Env::plog("test ratings", _test_map.size());
@@ -246,28 +246,28 @@ void
 DynNormPRec::initialize()
 {
   if (_env.pf_init) {
-    printf("+ loading beta/thetas from pf\n"); 
-    // wasteful... 
-    for(uint32_t t=0; t<_thetas.size(); ++t) { 
+    printf("+ loading beta/thetas from pf\n");
+    // wasteful...
+    for(uint32_t t=0; t<_thetas.size(); ++t) {
       _thetas[t]->load_from_pf(_env.datfname, _k, "theta"); // sets curr mean/var to pf fit
       //_thetas[t]->set_to_prior(); // sets next mean/var to prior
       //if(t==0)
-      //  _thetas[t]->set_next_to_prior(); 
+      //  _thetas[t]->set_next_to_prior();
       //else {
       //  _thetas[t]->set_mean_next(_thetas[t-1]->mean_curr());
-      //  _thetas[t]->set_var_next(); 
+      //  _thetas[t]->set_var_next();
       //}
-      _thetas[t]->compute_expectations(); 
+      _thetas[t]->compute_expectations();
       if(_env.normalized_representations)
-        _thetas[t]->mean_curr().normalize1(); 
+        _thetas[t]->mean_curr().normalize1();
     }
 
     printf("beta dynamic loading not implemented");
     assert(0==1);
     #if 0
     _beta.load_from_pf(_env.datfname, _k);
-    _beta.set_next_to_prior(); 
-    _beta.compute_expectations(); 
+    _beta.set_next_to_prior();
+    _beta.compute_expectations();
     if(_env.normalized_representations)
       _beta.mean_curr().normalize1();
     #endif
@@ -306,10 +306,10 @@ DynNormPRec::initialize()
   if (_env.pf_init_static)
     load_correction_factors();
 
-  printf("+ variables initialized\n"); 
+  printf("+ variables initialized\n");
 }
 
-void 
+void
 DynNormPRec::infer_dui_correction()
 {
   lerr("running duv inference with correction");
@@ -351,7 +351,7 @@ DynNormPRec::infer_dui_correction()
 
   bool optimize_correction = true, optimize_global = true;
 
-  //explain_opt(optimize_correction, optimize_global); 
+  //explain_opt(optimize_correction, optimize_global);
 
   while (1) {
 
@@ -641,7 +641,7 @@ DynNormPRec::infer_dui_correction()
       //printf("now optimizing correction parameters only\n");
       optimize_global = true;
       optimize_correction = true;
-      //explain_opt(optimize_correction, optimize_global); 
+      //explain_opt(optimize_correction, optimize_global);
       //_env.reportfreq=1;
     }
 
@@ -662,14 +662,14 @@ DynNormPRec::infer_dui()
   uint32_t x;
   x = _k;
 
-  //Array phi(x); 
+  //Array phi(x);
   //Array phi_n(x), phi_m(x);
   Array *p = new Array(x);
   Array *q = new Array(x);
 
   double * prior_array_theta = new double[_k];
   double * prior_array_beta = new double[_k];
-  for(uint32_t k=0; k<_k; ++k)  { 
+  for(uint32_t k=0; k<_k; ++k)  {
     prior_array_theta[k] = _thetas[0]->mprior();
     prior_array_beta[k] = _betas[0]->mprior();
   }
@@ -678,45 +678,45 @@ DynNormPRec::infer_dui()
   //Array betaexpsum(_k);
   //Array thetaexpsum(_k);
 
-  Matrix thetasummeanb(_n,_k); 
-  Matrix thetasummeane(_n,_k); 
+  Matrix thetasummeanb(_n,_k);
+  Matrix thetasummeane(_n,_k);
 
-  Array ones(_k); 
+  Array ones(_k);
   for (uint32_t k=0; k<_k; ++k)
-    ones[k] = 1.; 
+    ones[k] = 1.;
 
   compute_precision(false);
-  //elbo(); 
-  printf("\n"); 
+  //elbo();
+  printf("\n");
 
   while (1) {
 
     // a loop over time periods (this code doesn't have to know
-    // what a time period means, i.e., we assume discrete time for now) 
+    // what a time period means, i.e., we assume discrete time for now)
     for (uint32_t t = 0; t <= _env.max_train_time_period; ++t) {
       begin=false; end=false;
       if (t == 0)
-        begin=true; 
+        begin=true;
       else if (t==_env.max_train_time_period)
-        end=true; 
+        end=true;
 
       #pragma omp parallel for num_threads(_env.num_threads)
-      for (uint32_t n = 0; n < _n; ++n) { // for every user 
+      for (uint32_t n = 0; n < _n; ++n) { // for every user
         //if (t > _ratings.last_user_time_period(n))
         //  continue;
         Array phi_n(x), phi(x);
-        phi_n.zero(); 
+        phi_n.zero();
         const vector<uint32_t> *movies = _ratings.get_movies(n,t);
         for (uint32_t j = 0; j < movies->size(); ++j) {
           uint32_t m = (*movies)[j];
-          yval_t y = _ratings.r(n,m,t); 
+          yval_t y = _ratings.r(n,m,t);
 
           get_phi(*_thetas[t], n, *_betas[t], m, phi);
 
           if (y > 1)
             phi.scale(y);
 
-          phi_n.add_to(phi); 
+          phi_n.add_to(phi);
 
         } // items
 
@@ -724,7 +724,7 @@ DynNormPRec::infer_dui()
         betaexpsum.zero();
 
         _betas[t]->sum_eexp_rows(betaexpsum);
-        
+
         if(!_env.normalized_representations) {
           if(begin) {
             _thetas[t]->update_mean_next(n, phi_n, betaexpsum.const_data(), prior_array_theta, _thetas[t+1]->mean_curr().const_data()[n], begin, end, 1);
@@ -743,43 +743,43 @@ DynNormPRec::infer_dui()
           }
         } // normalized_representations
 
-        _thetas[t]->update_var_next(n, betaexpsum.const_data(), t == _env.max_train_time_period ? true: false, 1); 
+        _thetas[t]->update_var_next(n, betaexpsum.const_data(), t == _env.max_train_time_period ? true: false, 1);
 
       } // users
 
-      _thetas[t]->swap(); 
-      _thetas[t]->compute_expectations(); 
+      _thetas[t]->swap();
+      _thetas[t]->compute_expectations();
 
     } // time
 
     if (!_env.fixed_item_param) {
 
-      for (uint32_t t = 0; t <= _env.max_train_time_period; ++t) { 
+      for (uint32_t t = 0; t <= _env.max_train_time_period; ++t) {
         begin=false; end=false;
         if (t == 0)
-          begin=true; 
+          begin=true;
         else if (t==_env.max_train_time_period)
-          end=true; 
+          end=true;
 
         #pragma omp parallel for num_threads(_env.num_threads)
-        for (uint32_t m = 0; m < _m; ++m) { // for every item 
+        for (uint32_t m = 0; m < _m; ++m) { // for every item
           Array phi_m(x), phi(x);
-          phi_m.zero(); 
+          phi_m.zero();
 
           const vector<uint32_t> *users = _ratings.get_users(m,t);
           for (uint32_t j = 0; j < users->size(); ++j) {
             uint32_t n = (*users)[j];
-            yval_t y = _ratings.r(n,m,t); 
+            yval_t y = _ratings.r(n,m,t);
 
             get_phi(*_thetas[t], n, *_betas[t], m, phi);
 
             if (y > 1)
               phi.scale(y);
-            phi_m.add_to(phi); 
+            phi_m.add_to(phi);
 
           } // users
 
-          Array thetaexpsum(_k); 
+          Array thetaexpsum(_k);
           thetaexpsum.zero();
           _thetas[t]->sum_eexp_rows(thetaexpsum);
 
@@ -801,26 +801,26 @@ DynNormPRec::infer_dui()
             }
           } // normalized_representations
 
-          _betas[t]->update_var_next(m, thetaexpsum.const_data(), t == _env.max_train_time_period ? true: false, 1); 
+          _betas[t]->update_var_next(m, thetaexpsum.const_data(), t == _env.max_train_time_period ? true: false, 1);
 
         } // items
 
-        _betas[t]->swap(); 
-        _betas[t]->compute_expectations(); 
+        _betas[t]->swap();
+        _betas[t]->compute_expectations();
 
-      } // time 
+      } // time
 
     }
 
     printf("\r iteration %d (%d s)", _iter, duration());
-    fflush(stdout);    
+    fflush(stdout);
     if (_iter % _env.reportfreq == 0) {
       compute_likelihood(true);
       compute_likelihood(false);
       save_model();
       compute_precision(false);
-      //elbo(); 
-      printf("\n"); 
+      //elbo();
+      printf("\n");
     }
 
     if (_env.save_state_now) {
@@ -830,7 +830,7 @@ DynNormPRec::infer_dui()
 
     _iter++;
   }
-  delete p; 
+  delete p;
   delete q;
   delete prior_array_theta;
   delete prior_array_beta;
@@ -838,69 +838,69 @@ DynNormPRec::infer_dui()
 
 // perform inference
 void
-DynNormPRec::infer() 
+DynNormPRec::infer()
 {
   lerr("running inference()");
   initialize();
 
   uint32_t x;
-  x = _k; 
+  x = _k;
 
-  Matrix *phi_m = new Matrix(_m,x); 
-  Array phi(x); 
+  Matrix *phi_m = new Matrix(_m,x);
+  Array phi(x);
   Array phi_n(x);
   Array *p = new Array(x);
   Array *q = new Array(x);
 
   double * prior_array = new double[_k];
   double * prior_array_beta = new double[_k];
-  for(uint32_t k=0; k<_k; ++k)  { 
+  for(uint32_t k=0; k<_k; ++k)  {
     prior_array[k] = _thetas[0]->mprior();
     prior_array_beta[k] = _beta.mprior();
   }
-  bool begin, end; 
+  bool begin, end;
 
   //vector<unordered_set<uint32_t>> user_rated;
   Array betaexpsum(_k);
   Matrix thetasum_mat(_m, _k, true);
   Array thetaexpsum(_k);
 
-  Matrix thetasummeanb(_n,_k); 
-  Matrix thetasummeane(_n,_k); 
+  Matrix thetasummeanb(_n,_k);
+  Matrix thetasummeane(_n,_k);
 
-  Array ones(_k); 
+  Array ones(_k);
   for (uint32_t k=0; k<_k; ++k)
-    ones[k] = 1.; 
+    ones[k] = 1.;
 
   compute_precision(false);
-  //elbo(); 
-  printf("\n"); 
+  //elbo();
+  printf("\n");
 
   while (1) {
 
     thetaexpsum.zero();
 
     // a loop over time periods (this code doesn't have to know
-    // what a time period means, i.e., we assume discrete time for now) 
+    // what a time period means, i.e., we assume discrete time for now)
     for (uint32_t t = 0; t <= _env.max_train_time_period; ++t) {
       begin=false; end=false;
       if (t == 0)
-        begin=true; 
+        begin=true;
       else if (t==_env.max_train_time_period)
-        end=true; 
+        end=true;
 
-      for (uint32_t n = 0; n < _n; ++n) { // for every user 
+      for (uint32_t n = 0; n < _n; ++n) { // for every user
 
         //if(_env.positive_become_unobs) {
-        //  rated.clear(); 
+        //  rated.clear();
         //}
 
-        phi_n.zero(); 
+        phi_n.zero();
         const vector<uint32_t> *movies = _ratings.get_movies(n,t);
-        //printf("movies size %d\n", movies->size()); 
+        //printf("movies size %d\n", movies->size());
         for (uint32_t j = 0; j < movies->size(); ++j) {
           uint32_t m = (*movies)[j];
-          yval_t y = _ratings.r(n,m,t); 
+          yval_t y = _ratings.r(n,m,t);
 
           get_phi(*_thetas[t], n, _beta, m, phi);
 
@@ -908,19 +908,19 @@ DynNormPRec::infer()
             phi.scale(y);
 
 #if 0
-          const double * ppd = phi.const_data(); 
-          printf("\n in update (%d-%d)\n", n, m); 
+          const double * ppd = phi.const_data();
+          printf("\n in update (%d-%d)\n", n, m);
           for(uint32_t kk=0;kk<_k;++kk)
-            printf("%f ", ppd[kk]); 
-          printf("\n"); 
+            printf("%f ", ppd[kk]);
+          printf("\n");
 #endif
 
-          phi_n.add_to(phi); 
+          phi_n.add_to(phi);
 
-          //if(_env.positive_become_unobs) { 
-          //// remove this item's contribution from betaexpsum 
+          //if(_env.positive_become_unobs) {
+          //// remove this item's contribution from betaexpsum
           //
-          // 
+          //
 
         }
 
@@ -942,33 +942,33 @@ DynNormPRec::infer()
           }
         } // normalized_representations
 
-        _thetas[t]->update_var_next(n, betaexpsum.const_data(), t == _env.max_train_time_period ? true: false, 1); 
+        _thetas[t]->update_var_next(n, betaexpsum.const_data(), t == _env.max_train_time_period ? true: false, 1);
 
       } // users
 
       if (t == 0)
-        _thetas[t]->swap(); 
+        _thetas[t]->swap();
       else
-        _thetas[t]->swap(); 
-        //_thetas[t]->swap(_thetas[t-1]->mean_curr()); 
-      _thetas[t]->compute_expectations(); 
+        _thetas[t]->swap();
+        //_thetas[t]->swap(_thetas[t-1]->mean_curr());
+      _thetas[t]->compute_expectations();
 
     } // time
 
     if (!_env.fixed_item_param) {
 
-      phi_m->zero(); 
+      phi_m->zero();
       thetaexpsum.zero();
-      for (uint32_t t = 0; t <= _env.max_train_time_period; ++t) { 
+      for (uint32_t t = 0; t <= _env.max_train_time_period; ++t) {
 
         _thetas[t]->sum_eexp_rows(thetaexpsum);
 
-        for (uint32_t n = 0; n < _n; ++n) { // for every user 
+        for (uint32_t n = 0; n < _n; ++n) { // for every user
 
           const vector<uint32_t> *movies = _ratings.get_movies(n,t);
           for (uint32_t j = 0; j < movies->size(); ++j) {
             uint32_t m = (*movies)[j];
-            yval_t y = _ratings.r(n,m,t); 
+            yval_t y = _ratings.r(n,m,t);
 
             get_phi(*_thetas[t], n, _beta, m, phi);
 
@@ -977,28 +977,28 @@ DynNormPRec::infer()
             phi_m->add_slice(m,phi);
           }
         } // users
-      } // time 
+      } // time
 
       const double * thetasumd = thetaexpsum.const_data();
 
       for (uint32_t m = 0; m < _m; ++m) { // for every item
         phi_m->slice(0, m, *p);
         _beta.update_mean_next(m, *p, thetasumd, prior_array_beta, NULL, true, true, 1);
-        _beta.update_var_next(m, thetasumd); 
+        _beta.update_var_next(m, thetasumd);
       }
-      _beta.swap(); 
-      _beta.compute_expectations(); 
+      _beta.swap();
+      _beta.compute_expectations();
     }
 
     printf("\r iteration %d", _iter);
-    fflush(stdout);    
+    fflush(stdout);
     if (_iter % _env.reportfreq == 0) {
       compute_likelihood(true);
       compute_likelihood(false);
       save_model();
       compute_precision(false);
-      //elbo(); 
-      printf("\n"); 
+      //elbo();
+      printf("\n");
     }
 
     if (_env.save_state_now) {
@@ -1008,7 +1008,7 @@ DynNormPRec::infer()
 
     _iter++;
   }
-  delete p; 
+  delete p;
   delete q;
   delete phi_m;
   delete prior_array;
@@ -1050,22 +1050,22 @@ DynNormPRec::compute_precision(bool save_ranking_file)
             uint32_t n = gsl_rng_uniform_int(_r, _n);
             _sampled_users[n] = true;
         } while (_sampled_users.size() < 1000 && _sampled_users.size() < _n / 2);
-    } 
+    }
 
     KVArray mlist(_m);
     KVIArray ndcglist(_m);
 
-    uint32_t cc = 0; 
+    uint32_t cc = 0;
     for (UserMap::const_iterator itr = _sampled_users.begin();
             itr != _sampled_users.end(); ++itr, ++cc) {
 
         if(save_ranking_file)
-          printf("\r%d/%lu", cc, _sampled_users.size()); 
+          printf("\r%d/%lu", cc, _sampled_users.size());
         uint32_t n = itr->first;
 
-        // for each user we use the latest "trained" time period as the one to predict with 
+        // for each user we use the latest "trained" time period as the one to predict with
         uint32_t t = _ratings.last_user_time_period(n);
-        lerr("User %d establishing ranking at time %d\n", n, t); 
+        lerr("User %d establishing ranking at time %d\n", n, t);
 
         for (uint32_t m = 0; m < _m; ++m) {
             //Rating r(n,m,t);
@@ -1073,13 +1073,13 @@ DynNormPRec::compute_precision(bool save_ranking_file)
                 mlist[m].first = m;
                 mlist[m].second = .0;
                 ndcglist[m].first = m;
-                ndcglist[m].second = 0; 
+                ndcglist[m].second = 0;
                 continue;
             }
             double u = .0;
             u = prediction_score(n, m, t);
             if (std::isnan(u))
-              printf("u is nan (%d,%d,%d)\n", n, m, t); 
+              printf("u is nan (%d,%d,%d)\n", n, m, t);
             mlist[m].first = m;
             mlist[m].second = u;
             ndcglist[m].first = m;
@@ -1092,15 +1092,15 @@ DynNormPRec::compute_precision(bool save_ranking_file)
 
             if (itr != _test_map.end()) {
                 ndcglist[m].second = itr->second;
-            } else { 
+            } else {
                 ndcglist[m].second = 0;
-            }      
+            }
         }
         uint32_t hits10 = 0, hits100 = 0;
-        double   dcg10 = .0, dcg100 = .0; 
+        double   dcg10 = .0, dcg100 = .0;
         mlist.sort_by_value();
 
-        //uint32_t testhits = 0; 
+        //uint32_t testhits = 0;
         for (uint32_t j = 0; j < mlist.size() && j < _topN_by_user; ++j) {
             KV &kv = mlist[j];
             uint32_t m = kv.first;
@@ -1177,60 +1177,60 @@ DynNormPRec::compute_precision(bool save_ranking_file)
         }
         uint32_t idm;
         IDMap::const_iterator idt = _ratings.seq2user().find(n);
-        if (idt != _ratings.seq2user().end()) 
+        if (idt != _ratings.seq2user().end())
           idm = idt->second;
         else
           idm = 0;
-        //printf("test hits %d (user %d), time period (%d)\n", testhits, idm, t); 
+        //printf("test hits %d (user %d), time period (%d)\n", testhits, idm, t);
         mhits10 += (double)hits10 / 10;
         if (std::isnan(mhits10))
-          printf("mhits10 is nan\n"); 
+          printf("mhits10 is nan\n");
 
         mhits100 += (double)hits100 / 100;
         total_users++;
         // DCG normalizer
         double dcg10_gt = 0, dcg100_gt = 0;
-        bool user_has_test_ratings = true; 
+        bool user_has_test_ratings = true;
         ndcglist.sort_by_value();
         for (uint32_t j = 0; j < ndcglist.size() && j < _topN_by_user; ++j) {
-            int v = ndcglist[j].second; 
+            int v = ndcglist[j].second;
             if(v==0) { //all subsequent docs are irrelevant
                 if(j==0)
-                    user_has_test_ratings = false; 
+                    user_has_test_ratings = false;
                 break;
             }
 
-            if (j < 10) { 
+            if (j < 10) {
                 dcg10_gt += (pow(2.,v) - 1)/log(j+2);
                 dcg100_gt += (pow(2.,v) - 1)/log(j+2);
             } else if (j < 100) {
                 dcg100_gt += (pow(2.,v) - 1)/log(j+2);
             }
         }
-        if(user_has_test_ratings) { 
+        if(user_has_test_ratings) {
             cumndcg10 += dcg10/dcg10_gt;
             cumndcg100 += dcg100/dcg100_gt;
-        } 
+        }
     }
     if (save_ranking_file)
         fclose(f);
-    fprintf(_pf, "%d\t%.5f\t%.5f\n", 
+    fprintf(_pf, "%d\t%.5f\t%.5f\n",
             total_users,
-            (double)mhits10 / total_users, 
+            (double)mhits10 / total_users,
             (double)mhits100 / total_users);
     fflush(_pf);
-    fprintf(_df, "%.5f\t%.5f\n", 
-            cumndcg10 / total_users, 
+    fprintf(_df, "%.5f\t%.5f\n",
+            cumndcg10 / total_users,
             cumndcg100 / total_users);
     fflush(_df);
 
-    printf("\n\t\t\tprec@10: %f, prec@%d: %f", (double)mhits10 / total_users, 100, (double)mhits100 / total_users); 
+    printf("\n\t\t\tprec@10: %f, prec@%d: %f", (double)mhits10 / total_users, 100, (double)mhits100 / total_users);
 
 }
 
 void
-DynNormPRec::get_phi(NormBase<Matrix> &a, uint32_t ai, 
-               NormBase<Matrix> &b, uint32_t bi, 
+DynNormPRec::get_phi(NormBase<Matrix> &a, uint32_t ai,
+               NormBase<Matrix> &b, uint32_t bi,
                Array &phi)
 {
 
@@ -1247,8 +1247,8 @@ DynNormPRec::get_phi(NormBase<Matrix> &a, uint32_t ai,
 
 
 void
-DynNormPRec::get_phi(NormBase<Matrix> &a, uint32_t ai, 
-		 NormBase<Matrix> &b, uint32_t bi, 
+DynNormPRec::get_phi(NormBase<Matrix> &a, uint32_t ai,
+		 NormBase<Matrix> &b, uint32_t bi,
      NormBase<Matrix> &c, NormBase<Matrix> &d,
 		 Array &phi)
 {
@@ -1265,8 +1265,8 @@ DynNormPRec::get_phi(NormBase<Matrix> &a, uint32_t ai,
 }
 
 void
-DynNormPRec::get_phi(NormBase<Matrix> &a, uint32_t ai, 
-		 NormBase<Matrix> &b, uint32_t bi, 
+DynNormPRec::get_phi(NormBase<Matrix> &a, uint32_t ai,
+		 NormBase<Matrix> &b, uint32_t bi,
 		 double biasa, double biasb,
 		 Array &phi)
 {
@@ -1287,9 +1287,9 @@ DynNormPRec::get_phi(NormBase<Matrix> &a, uint32_t ai,
 void
 DynNormPRec::compute_likelihood(bool validation)
 {
-  uint32_t k = 0; 
+  uint32_t k = 0;
   double s = .0;
-  
+
   CountMap *mp = NULL;
   FILE *ff = NULL;
   if (validation) {
@@ -1305,24 +1305,24 @@ DynNormPRec::compute_likelihood(bool validation)
     const Rating &e = i->first;
     uint32_t n = std::get<0>(e);
     uint32_t m = std::get<1>(e);
-    uint8_t  t = std::get<2>(e); 
+    uint8_t  t = std::get<2>(e);
 
     yval_t r = i->second;
     double u = rating_likelihood(n,m,t,r);
-    lerr("validation time-step %d\n", t); 
+    lerr("validation time-step %d\n", t);
 
     s += u;
     k += 1;
 
-    // add a fake 0 
+    // add a fake 0
     //for(uint32_t ii=0; ii<5; ++ii) {
-      //s += rating_likelihood(n, gsl_rng_uniform_int(_r, _m), t, 0); 
-      //k += 1; 
+      //s += rating_likelihood(n, gsl_rng_uniform_int(_r, _m), t, 0);
+      //k += 1;
     //}
   }
 
   double a = .0;
-  a = s / k;  
+  a = s / k;
   info("s = %.5f\n", s);
   fprintf(ff, "%d\t%d\t%.9f\t%d\n", _iter, duration(), a, k);
   fflush(ff);
@@ -1331,10 +1331,10 @@ DynNormPRec::compute_likelihood(bool validation)
     return;
 
   printf("\n\t\t\tvalidation pred ll: %f", a);
-  
+
   bool stop = false;
   int why = -1;
-  if (_iter > 30) {
+  if (_iter > 10) {
     if (a > _prev_h && _prev_h != 0 && fabs((a - _prev_h) / _prev_h) < 0.000001) {
       stop = true;
       why = 0;
@@ -1350,7 +1350,7 @@ DynNormPRec::compute_likelihood(bool validation)
   }
   _prev_h = a;
   FILE *f = fopen(Env::file_str("/max.txt").c_str(), "w");
-  fprintf(f, "%d\t%d\t%.5f\t%d\n", 
+  fprintf(f, "%d\t%d\t%.5f\t%d\n",
 	  _iter, duration(), a, why);
   fclose(f);
   if (stop) {
@@ -1363,8 +1363,8 @@ double
 DynNormPRec::score(uint32_t p, uint32_t q, uint32_t t) const
 {
   if(t == (_env.time_periods-1)) { // !! hack for arXiv data (most validation/test occurs one step after last train)
-    t -= 1; 
-    lerr("predicting (%d,%d) with time %d\n", p, q, t); 
+    t -= 1;
+    lerr("predicting (%d,%d) with time %d\n", p, q, t);
   }
   const double **eexpthetas = _thetas[t]->expected_expv().const_data();
   const double **eexptheta = _theta.expected_expv().const_data();
@@ -1375,17 +1375,17 @@ DynNormPRec::score(uint32_t p, uint32_t q, uint32_t t) const
     eexpbeta = _beta.expected_expv().const_data();
   } else
     eexpbetas = _beta.expected_expv().const_data();
-  
+
   double s = .0;
-  for (uint32_t k = 0; k < _k; ++k) 
+  for (uint32_t k = 0; k < _k; ++k)
     //s += (eexptheta[p][k] * eexpbeta[q][k]);
     s += (eexptheta[p][k] * eexpthetas[p][k] * eexpbeta[q][k] * eexpbetas[q][k]);
 
- 
+
   if (s < 1e-15)
     s = 1e-15;
 
-  return s; 
+  return s;
 
 }
 
@@ -1403,9 +1403,9 @@ DynNormPRec::rating_likelihood(uint32_t p, uint32_t q, uint32_t t, yval_t y) con
   double s = score(p,q,t);
 
   if(std::isinf(log(1 - exp(-s))) )
-    printf("expression is inf %f\n", s); 
+    printf("expression is inf %f\n", s);
   if (_env.binary_data)
-    return y == 0 ? -s : log(1 - exp(-s));    
+    return y == 0 ? -s : log(1 - exp(-s));
   return y * log(s) - s - log_factorial(y);
 }
 
@@ -1420,7 +1420,7 @@ void
 DynNormPRec::load_correction_factors()
 {
   // loads thetas,beta (typically from previous run of the same model)
-  string nn = ""; 
+  string nn = "";
   _theta.load(nn); // sets curr mean/var to pf fit
   //_env.datfname
   _theta.set_next_to_prior(); // sets next mean/var to corresponding priors
@@ -1434,38 +1434,38 @@ DynNormPRec::load_correction_factors()
 void
 DynNormPRec::load_factors()
 {
-  for(uint32_t t=0; t<_thetas.size(); ++t) { 
+  for(uint32_t t=0; t<_thetas.size(); ++t) {
     // loads thetas,beta (typically from previous run of the same model)
     _thetas[t]->load(); // sets curr mean/var to pf fit
     // sets next mean/var to corresponding priors
-    _thetas[t]->set_next_to_prior(); 
+    _thetas[t]->set_next_to_prior();
     //if(t==0)
-    //  _thetas[t]->set_next_to_prior(); 
+    //  _thetas[t]->set_next_to_prior();
     //else {
     //  _thetas[t]->set_mean_next(_thetas[t-1]->mean_curr());
-    //  _thetas[t]->set_var_next(); 
+    //  _thetas[t]->set_var_next();
     //}
   }
 
-  for(uint32_t t=0; t<_betas.size(); ++t) { 
+  for(uint32_t t=0; t<_betas.size(); ++t) {
     _betas[t]->load(); // sets curr mean/var to pf fit
-    _betas[t]->set_next_to_prior(); 
+    _betas[t]->set_next_to_prior();
   }
 }
 
 void
 DynNormPRec::gen_ranking_for_users(bool load)
 {
-  if (load) { 
-    load_factors(); 
-  } 
+  if (load) {
+    load_factors();
+  }
 
   char buf[4096];
   sprintf(buf, "%s/test_users.tsv", _env.datfname.c_str());
   FILE *f = fopen(buf, "r");
   if (!f) {
     lerr("cannot open %s", buf);
-    printf("cannot open %s", buf); 
+    printf("cannot open %s", buf);
     return;
   }
   //assert(f);
@@ -1485,7 +1485,7 @@ DynNormPRec::prediction_score(uint32_t p, uint32_t q, uint32_t t) const
 
   if (_use_rate_as_score)
     return s;
-  
+
   if (s < 1e-30)
     s = 1e-30;
   double prob_zero = exp(-s);
