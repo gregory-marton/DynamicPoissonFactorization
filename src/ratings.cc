@@ -10,9 +10,9 @@ Ratings::read(string s)
 
   read_generic_train(s);
   //write_marginal_distributions();
-    
+
   char st[1024];
-  sprintf(st, "read %d users, %d movies, %d ratings", 
+  sprintf(st, "read %d users, %d movies, %d ratings",
 	  _curr_user_seq, _curr_movie_seq, _nratings);
   _env.n = _curr_user_seq;
   _env.m = _curr_movie_seq;
@@ -50,32 +50,32 @@ Ratings::read_generic_train(string dir)
 
 }
 
-uint32_t 
+uint32_t
 Ratings::time_period(uint32_t rating_time)
 {
-  uint32_t rating_time_period; 
-  rating_time_period = (rating_time - _env.time_my_epoch) / _env.time_period_length; 
+  uint32_t rating_time_period;
+  rating_time_period = (rating_time - _env.time_my_epoch) / _env.time_period_length;
   // Env::plog("returning time period %d\n", rating_time_period);
   if (rating_time_period >= _env.time_periods) {
     printf("%d - %d\n", rating_time, _env.time_my_epoch);
-    printf("current time period >= than number of time_periods: %d > %d", rating_time_period, _env.time_periods); 
-    exit(-1); 
+    printf("current time period >= than number of time_periods: %d > %d", rating_time_period, _env.time_periods);
+    exit(-1);
   }
-  return rating_time_period; 
+  return rating_time_period;
 }
 
-uint32_t 
+uint32_t
 Ratings::last_user_time_period(uint32_t n)
 {
         map<uint32_t, RatingMap *> *v = _users2rating[n];
 
-        if(!v) // is this correct? 
+        if(!v) // is this correct?
             return 0;
 
-        uint32_t maxt=0; 
+        uint32_t maxt=0;
         for (uint32_t t=0; t<_env.time_periods; ++t) {
               if ((*v)[t]->size() > 0)
-                maxt = t; 
+                maxt = t;
         }
         return maxt;
 }
@@ -83,24 +83,26 @@ Ratings::last_user_time_period(uint32_t n)
 int
 Ratings::read_generic(FILE *f, CountMap *cmap)
 {
+  int lineno = 0;
   assert(f);
   char b[128];
   uint32_t mid = 0, uid = 0, rating = 0, rating_time = 0;
   while (!feof(f)) {
+    lineno++;
     if (fscanf(f, "%u\t%u\t%u\t%u\n", &uid, &mid, &rating, &rating_time) < 0) {
-      printf("error: unexpected lines in file\n");
+      printf("error: unexpected lines in ratings at %d\n", lineno);
       fclose(f);
       exit(-1);
     }
 
     if (_env.dynamic_item_representations) {
-        uint32_t tmp; 
+        uint32_t tmp;
         tmp = mid;
         mid = uid;
         uid = tmp;
     }
 
-    uint32_t rating_time_period = time_period(rating_time); 
+    uint32_t rating_time_period = time_period(rating_time);
 
     IDMap::iterator it = _user2seq.find(uid);
     IDMap::iterator mt = _movie2seq.find(mid);
@@ -129,7 +131,7 @@ Ratings::read_generic(FILE *f, CountMap *cmap)
         map<uint32_t, RatingMap *> *v = _users2rating[n];
 
         //if (v->find(rating_time_period) == v->end())
-        //  (*v)[rating_time_period] = new RatingMap; 
+        //  (*v)[rating_time_period] = new RatingMap;
 
         if (_env.binary_data)
           (*((*v)[rating_time_period]))[m] = 1;
@@ -157,14 +159,14 @@ Ratings::read_generic(FILE *f, CountMap *cmap)
   return 0;
 }
 
-#if 0 
+#if 0
 int
 Ratings::write_marginal_distributions()
 {
   FILE *f = fopen(Env::file_str("/byusers.tsv").c_str(), "w");
   uint32_t x = 0;
   uint32_t nusers = 0;
-  for (uint32_t t = 0; t < _env.max_time_period; ++t) { 
+  for (uint32_t t = 0; t < _env.max_time_period; ++t) {
     for (uint32_t n = 0; n < _env.n; ++n) {
       const vector<uint32_t> *movies = get_movies(n);
       IDMap::const_iterator it = seq2user().find(n);
