@@ -206,14 +206,16 @@ Env::file_str(string fname)
 inline void
 Env::read_for_stats(char *buf, uint32_t *min_rating_time, uint32_t *max_rating_time)
 {
+  int lineno = 0;
   uint32_t mid = 0, uid = 0, rating = 0, rating_time = 0;
   *min_rating_time = UINT32_MAX;
 
   FILE *f = fopen(buf, "r");
 
   while (!feof(f)) {
+    lineno++;
     if (fscanf(f, "%u\t%u\t%u\t%u\n", &uid, &mid, &rating, &rating_time) < 0) {
-      printf("error: unexpected lines in file\n");
+      printf("error: unexpected lines in file %s:%d\n", buf, lineno);
       fclose(f);
       exit(-1);
     }
